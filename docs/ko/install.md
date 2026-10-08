@@ -104,7 +104,7 @@ sudo sysctl --system
 ## 5. 템플릿 설치 / 빌드 / 실행
 
 ```bash
-git clone https://github.com/<your-account>/artcraft-personal-server.git
+git clone https://github.com/junwonkim07/artcraft-personal-server.git
 cd artcraft-personal-server
 
 scripts/generate-secrets.sh        # .env, config/providers.env 생성 (권한 600). 비밀값은 출력되지 않음
