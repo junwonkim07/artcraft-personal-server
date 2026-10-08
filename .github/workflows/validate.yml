@@ -1,0 +1,144 @@
+name: validate
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      build_images:
+        description: "Build all images and smoke-test the stack (slow, ~1-2h)"
+        type: boolean
+        default: false
+      patched_checks:
+        description: "cargo check -p storyteller-web and webapp build on patched upstream (slow)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          fetch-depth: 0   # full history for gitleaks
+      - name: secret scan (template rules, scripts/secret-scan.sh)
+        run: scripts/secret-scan.sh
+      - name: gitleaks (pinned release binary, sha256 verified)
+        run: |
+          v="$(grep -E '^GITLEAKS_VERSION=' UPSTREAM.lock | cut -d= -f2 | awk '{print $1}')"
+          sum="$(grep -E '^GITLEAKS_LINUX_X64_SHA256=' UPSTREAM.lock | cut -d= -f2 | awk '{print $1}')"
+          curl -fsSLo /tmp/gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${v}/gitleaks_${v}_linux_x64.tar.gz"
+          echo "${sum}  /tmp/gitleaks.tgz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          /tmp/gitleaks git --redact --no-banner --exit-code 1 .
+          /tmp/gitleaks dir --redact --no-banner --exit-code 1 .
+      - name: patches apply cleanly to pinned upstream (git apply --check)
+        run: |
+          sha=$(grep -E '^UPSTREAM_SHA=' UPSTREAM.lock | cut -d= -f2 | awk '{print $1}')
+          git init -q /tmp/upstream && cd /tmp/upstream
+          git remote add origin https://github.com/storytold/artcraft-services.git
+          git fetch -q --depth 1 origin "$sha" && git checkout -q FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$sha"
+          for p in "$GITHUB_WORKSPACE"/patches/backend/*.patch "$GITHUB_WORKSPACE"/patches/frontend/*.patch; do
+            echo "checking $p"; git apply --check --verbose "$p"
+          done
+      - name: bash -n
+        run: for f in scripts/*.sh docker/*.sh; do bash -n "$f"; done
+      - name: shellcheck
+        run: shellcheck -x scripts/*.sh docker/*.sh
+      - name: secrets are not tracked
+        run: |
+          test -z "$(git ls-files .env config/providers.env)"
+          git check-ignore -q .env config/providers.env
+      - name: generate dummy .env and config/providers.env
+        run: |
+          scripts/generate-secrets.sh
+          test "$(stat -c %a .env)" = "600"
+          test "$(stat -c %a config/providers.env)" = "600"
+          # every provider value must be empty
+          test -z "$(grep -E '^[A-Z0-9_]+=.+' config/providers.env)"
+          # second run must refuse to overwrite
+          if scripts/generate-secrets.sh; then echo "expected refusal"; exit 1; fi
+      - name: docker compose config
+        run: docker compose config --quiet
+      - name: ports are loopback-only
+        run: |
+          docker compose config --format json \
+            | jq -e '[.services[] | (.ports // [])[] | .host_ip] | all(. == "127.0.0.1")'
+      - name: pinned images exist
+        run: |
+          for img in $(docker compose config --images | grep -v '^artcraft-personal/'); do
+            echo "checking $img"; docker manifest inspect "$img" >/dev/null
+          done
+          for img in ubuntu:jammy-20250819 node:22.23.3-bookworm-slim nginx:1.30.5-alpine; do
+            echo "checking $img"; docker manifest inspect "$img" >/dev/null
+          done
+      - name: upstream SHA reachable
+        run: |
+          sha=$(grep -E '^UPSTREAM_SHA=' UPSTREAM.lock | cut -d= -f2)
+          git ls-remote https://github.com/storytold/artcraft-services.git >/dev/null
+          curl -fsS -o /dev/null "https://api.github.com/repos/storytold/artcraft-services/commits/${sha}"
+
+  build:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_images
+    needs: static
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - name: free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+      - name: build all images
+        run: |
+          scripts/generate-secrets.sh
+          docker compose build
+      - name: smoke test (local services only)
+        run: |
+          docker compose up -d
+          ok=0; for i in $(seq 1 60); do curl -fsS http://127.0.0.1:12345/_status && ok=1 && break; sleep 10; done
+          [ "$ok" = 1 ] || { docker compose logs --tail=200; exit 1; }
+          curl -fsS -o /dev/null http://127.0.0.1:4201/
+          curl -fsS http://127.0.0.1:4201/_status
+          scripts/verify-storage-policy.sh
+      - name: logs on failure
+        if: failure()
+        run: docker compose logs --tail=300
+
+  patched-checks:
+    if: github.event_name == 'workflow_dispatch' && inputs.patched_checks
+    needs: static
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - name: free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+      - name: fetch pinned upstream and apply patches
+        run: |
+          sha=$(grep -E '^UPSTREAM_SHA=' UPSTREAM.lock | cut -d= -f2 | awk '{print $1}')
+          git init -q /tmp/upstream && cd /tmp/upstream
+          git remote add origin https://github.com/storytold/artcraft-services.git
+          git fetch -q --depth 1 origin "$sha" && git checkout -q FETCH_HEAD
+          for p in "$GITHUB_WORKSPACE"/patches/backend/*.patch "$GITHUB_WORKSPACE"/patches/frontend/*.patch; do
+            git apply --check --verbose "$p" && git apply --verbose "$p"
+          done
+          git diff --stat
+      - name: cargo check -p storyteller-web (patched, SQLX_OFFLINE)
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential cmake libclang-dev libfontconfig1-dev libssl-dev pkg-config default-libmysqlclient-dev
+          tc=$(grep -E '^RUST_TOOLCHAIN=' UPSTREAM.lock | cut -d= -f2 | awk '{print $1}')
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain "$tc"
+          cd /tmp/upstream && SQLX_OFFLINE=true "$HOME/.cargo/bin/cargo" check --locked -p storyteller-web
+      - name: unit tests for touched media link code (patched)
+        run: |
+          cd /tmp/upstream && SQLX_OFFLINE=true "$HOME/.cargo/bin/cargo" test --locked -p storyteller-web -- common_responses::media web_utils::bucket_urls
+      - name: webapp production build (patched)
+        run: |
+          docker run --rm -v /tmp/upstream/frontend:/src -w /src \
+            -e VITE_API_ORIGIN=same-origin -e VITE_CDN_ORIGIN=http://localhost:4201 \
+            -e NODE_OPTIONS=--max-old-space-size=8192 -e NX_DAEMON=false -e NX_NO_CLOUD=true -e CI=true \
+            node:22.23.3-bookworm-slim sh -c 'npm ci --no-audit --no-fund && npx nx build artcraft-webapp && test -f apps/artcraft-webapp/dist/index.html'
