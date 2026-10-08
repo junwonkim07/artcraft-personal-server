@@ -52,7 +52,8 @@ jobs:
       - name: secrets are not tracked
         run: |
           test -z "$(git ls-files .env config/providers.env)"
-          git check-ignore -q .env config/providers.env
+          git check-ignore -q .env
+          git check-ignore -q config/providers.env
       - name: generate dummy .env and config/providers.env
         run: |
           scripts/generate-secrets.sh
