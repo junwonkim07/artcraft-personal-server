@@ -22,8 +22,8 @@
 | mysql | `mysql:8.4.7` | 계정, 미디어 메타데이터, 작업 | 없음 |
 | redis | `redis:7.4.7` | 캐시, 레이트리밋, 진행상황 | 없음 |
 | elasticsearch | `elasticsearch:8.19.4` | 검색 인덱스 (single-node) | 없음 |
-| minio | `minio/minio:RELEASE.2025-04-22T22-12-26Z` | S3 호환 스토리지 | `127.0.0.1:9000`, 콘솔 `127.0.0.1:9001` |
-| minio-init | `minio/mc:RELEASE.2025-04-16T18-13-26Z` | 버킷 생성 (1회성) | 없음 |
+| minio | 공식 소스 `9e49d5e7`에서 빌드 | S3 호환 스토리지 | `127.0.0.1:9000`, 콘솔 `127.0.0.1:9001` |
+| minio-init | 공식 소스 `7394ce0d`에서 빌드 | 버킷 생성 (1회성) | 없음 |
 | migrate | 로컬 빌드 | 마이그레이션 + 시스템 역할 시드 (1회성) | 없음 |
 | es-init | 로컬 빌드 | ES 인덱스 생성 (1회성) | 없음 |
 | storyteller-web | 로컬 빌드 (패치 적용) | HTTP API, `GET /_status` | `127.0.0.1:12345` |

@@ -34,6 +34,6 @@ ssh -N -L 4201:127.0.0.1:4201 -L 12345:127.0.0.1:12345 -L 9001:127.0.0.1:9001 de
 - `docker-compose.yml`의 `127.0.0.1:` 바인딩을 지우거나 `0.0.0.0:`으로 바꾸지 말 것.
 - `ufw allow 12345` 같은 규칙을 추가하지 말 것. **Docker로 게시한 포트는 ufw를 우회함**
   ([Docker and ufw](https://docs.docker.com/engine/network/packet-filtering-firewalls/#docker-and-ufw)) → 방화벽을 믿고 바인딩을 넓히면 인터넷에 그대로 노출될 수 있음.
-- 이 구성은 공개 서비스용 보안 검토를 받지 않았음 (development 모드, `COOKIE_SECURE=false`, Elasticsearch 보안 끔).
+- 이 구성은 공개 서비스용 보안 검토를 받지 않았음 (development 모드, localhost용 쿠키, Elasticsearch 보안 끔).
 
 원격에서 계속 써야 한다면 SSH 터널이나 WireGuard/Tailscale 같은 **VPN**을 쓰고, 공개 포트는 열지 말 것.

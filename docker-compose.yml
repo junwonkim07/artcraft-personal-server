@@ -81,7 +81,13 @@ services:
     mem_limit: 1536m
 
   minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    image: artcraft-personal/minio:9e49d5e7
+    build:
+      context: .
+      dockerfile: docker/storage.Dockerfile
+      args:
+        COMPONENT: minio
+        SOURCE_SHA: 9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a
     restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
@@ -100,7 +106,13 @@ services:
     mem_limit: 512m
 
   minio-init:
-    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    image: artcraft-personal/mc:7394ce0d
+    build:
+      context: .
+      dockerfile: docker/storage.Dockerfile
+      args:
+        COMPONENT: mc
+        SOURCE_SHA: 7394ce0dd2a80935aded936b09fa12cbb3cb8096
     depends_on:
       minio:
         condition: service_healthy

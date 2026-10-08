@@ -15,5 +15,5 @@
 | `env file .../config/providers.env not found` | `scripts/generate-secrets.sh` 실행 (이미 `.env`가 있어도 providers.env는 만들어 줌) |
 | `migrate`가 실패하고 API가 안 뜸 | `docker compose logs migrate`. 마이그레이션 호환성은 미검증 영역임. 로그와 함께 이슈로 남겨주면 도움 됨 |
 | `storyteller-web` 부팅 실패, 환경변수 관련 오류 | 업스트림에 새 필수 변수가 생겼을 수 있음 → [업데이트 문서](update-uninstall.md) |
-| MinIO 이미지 pull 실패 | 고정 태그가 더 이상 배포되지 않을 수 있음. `UPSTREAM.lock`과 compose의 태그를 다른 고정 태그나 S3 호환 대안으로 교체 |
+| MinIO 빌드 실패 | 공식 이미지 배포가 중단되어 고정 소스로 빌드함. `docker compose build minio minio-init` 로그와 GitHub/Go 모듈 다운로드 연결 확인 |
 | 복구 실패 후 API가 꺼져 있음 | 의도된 안전 동작. 원인 해결 후 복구 재실행, 또는 `docker compose start storyteller-web` |

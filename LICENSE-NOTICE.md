@@ -49,3 +49,13 @@ commit pinned in `UPSTREAM.lock`. Build with `APPLY_PATCHES=false` to use pristi
 This is an unofficial community template. It is not affiliated with, endorsed by, or
 supported by ArtCraft or Storyteller. "ArtCraft" is used only to describe what the
 template deploys. No ArtCraft logos or marks are included.
+
+## Storage dependencies
+
+MinIO and mc are built locally from pinned official source commits under AGPL-3.0.
+Their license is separate from this template. MinIO Community upstream is no longer
+maintained and its legacy binary/image downloads are unavailable. This template uses
+the last published server release (including its October 2025 security fix), with
+storage accessible only inside the private Docker network or localhost/SSH tunnel.
+Review upstream maintenance and security status before storing important data.
+Sources: https://github.com/minio/minio and https://github.com/minio/mc .
