@@ -2,6 +2,8 @@
 
 > Ubuntu 24.04, 4 vCPU, RAM 8GB + 스왑 8GB VPS에서 핵심 배포 흐름을 검증했습니다. 아래 권장 용량은 여유를 둔 추정치이며, 완료 범위는 [검증 상태](status.md)를 확인하세요.
 
+호스팅 업체를 선택하려면 [배포 옵션](../deployment.md)을 먼저 보세요. `scripts/deploy.sh` 메뉴와 Vultr/Hetzner Cloud용 cloud-init 생성기를 제공합니다. Hetzner Auction은 Ubuntu 설치 후 같은 설치기를 사용하며, Vercel/Neon은 아직 전체 스택 설치 대상이 아닙니다.
+
 ## 사전요건
 
 | 항목 | 권장 (추정) | 비고 |

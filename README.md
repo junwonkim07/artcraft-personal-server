@@ -10,7 +10,7 @@ An unofficial Docker Compose setup for running the ArtCraft web app, API, and st
 [![Template License: MIT](https://img.shields.io/badge/template-MIT-blue.svg)](LICENSE)
 [![Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](docs/ko/status.md)
 
-[Quick start](#quick-start) · [Documentation](#documentation) · [Contributing](CONTRIBUTING.md) · [한국어 설치 가이드](docs/ko/install.md)
+[Deploy options](#choose-where-to-deploy) · [Quick start](#quick-start) · [Documentation](#documentation) · [Contributing](CONTRIBUTING.md) · [한국어 설치 가이드](docs/ko/install.md)
 
 </div>
 
@@ -45,6 +45,20 @@ flowchart LR
 ```
 
 The API and uploaded media are served from your server. External model providers are not configured by default. Upstream UI links and integrations remain present; this is not an offline or air-gapped build.
+
+## Choose where to deploy
+
+Choose your host, then use the same private stack:
+
+| Platform | Get started |
+| --- | --- |
+| **Vultr** | [Ubuntu installer / cloud-init](docs/deployment.md#cloud-init-hetzner-cloud-and-vultr) |
+| **Hetzner Cloud** | [Ubuntu installer / cloud-init](docs/deployment.md#cloud-init-hetzner-cloud-and-vultr) |
+| **Hetzner Dedicated / Server Auction** | [Install after Ubuntu setup](docs/deployment.md#hetzner-dedicated--server-auction) |
+| **Other Ubuntu server** | [Interactive installer](docs/deployment.md#interactive-installer) |
+| **Vercel / Neon** | [Compatibility and required changes](docs/deployment.md#vercel-a-different-deployment-architecture) — no full-stack preset yet |
+
+After cloning the repository, run `./scripts/deploy.sh` to choose a target and preview its plan. Use `--apply` on the selected server to install. Cloud-init generation is available for new Vultr and Hetzner Cloud machines. See the [deployment guide](docs/deployment.md) for commands, requirements and verification levels.
 
 ## Quick start
 
@@ -104,6 +118,7 @@ Store a copy of backups outside the server. See [backup and recovery](docs/ko/ba
 
 | Guide | What you’ll find |
 | --- | --- |
+| [Deployment targets](docs/deployment.md) | Provider selector, cloud-init, Hetzner Auction, Vercel/Neon compatibility |
 | [Installation](docs/ko/install.md) | Ubuntu, Docker, SSH, prerequisites, and first startup |
 | [Access](docs/ko/access.md) | Local access, SSH tunnels, and desktop configuration |
 | [Backup & restore](docs/ko/backup-restore.md) | Recovery steps, retention, and off-server copies |
