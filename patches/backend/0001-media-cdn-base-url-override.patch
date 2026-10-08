@@ -1,0 +1,97 @@
+diff --git a/crates/service/web/storyteller_web/src/http_server/common_responses/media/cdn_link.rs b/crates/service/web/storyteller_web/src/http_server/common_responses/media/cdn_link.rs
+--- a/crates/service/web/storyteller_web/src/http_server/common_responses/media/cdn_link.rs
++++ b/crates/service/web/storyteller_web/src/http_server/common_responses/media/cdn_link.rs
+@@ -2,6 +2,7 @@
+ use domains::Domain;
+ use domains::fakeyou::{FAKEYOU_CDN, FAKEYOU_DEV_CDN};
+ use server_environment::ServerEnvironment;
++use std::sync::OnceLock;
+ use url::Url;
+ 
+ // NB: Storyteller media is served from the FakeYou CDN too.
+@@ -11,12 +12,44 @@
+ const FAKEYOU_DEVELOPMENT: Domain = FAKEYOU_DEV_CDN;
+ const STORYTELLER_DEVELOPMENT: Domain = FAKEYOU_DEV_CDN;
+ 
++/// Optional media CDN base (scheme + host [+ port], no path), e.g. `http://localhost:4201`.
++/// Set at most once at startup from `MEDIA_CDN_BASE_URL` (see `startup/build_dependencies.rs`).
++/// When unset (the default), the hardcoded hosts below are used unchanged.
++static MEDIA_CDN_BASE_URL_OVERRIDE: OnceLock<(String, Url)> = OnceLock::new();
++
++/// Install the media CDN base override. Only an origin is accepted (no path, query or fragment),
++/// because callers replace the URL path with the bucket object path.
++pub fn set_media_cdn_base_url_override(base_url: &str) -> anyhow::Result<()> {
++  let url = Url::parse(base_url.trim())?;
++  if url.scheme() != "http" && url.scheme() != "https" {
++    anyhow::bail!("MEDIA_CDN_BASE_URL must use http or https: {base_url}");
++  }
++  if url.host_str().is_none() || url.path() != "/" || url.query().is_some() || url.fragment().is_some() {
++    anyhow::bail!("MEDIA_CDN_BASE_URL must be an origin without path, e.g. http://localhost:4201 (got {base_url})");
++  }
++  let origin = url.origin().ascii_serialization(); // no trailing slash, like `https_link_without_path()`
++  let origin_url = Url::parse(&origin)?; // path "/", like `https_url()`
++  MEDIA_CDN_BASE_URL_OVERRIDE.set((origin, origin_url))
++      .map_err(|_| anyhow::anyhow!("MEDIA_CDN_BASE_URL override already set"))
++}
++
++/// The installed override, if any.
++pub fn media_cdn_base_url_override() -> Option<&'static str> {
++  MEDIA_CDN_BASE_URL_OVERRIDE.get().map(|(origin, _)| origin.as_str())
++}
++
+ // TODO(bt,2025-01-31): Perhaps this should be config driven and configurable at runtime instead of hardcoded.
+ pub fn get_cdn_host(media_domain: MediaDomain, server_environment: ServerEnvironment) -> &'static str {
++  if let Some(origin) = media_cdn_base_url_override() {
++    return origin;
++  }
+   cdn_domain(media_domain, server_environment).https_link_without_path()
+ }
+ 
+ pub fn new_cdn_url(media_domain: MediaDomain, server_environment: ServerEnvironment) -> Url {
++  if let Some((_, url)) = MEDIA_CDN_BASE_URL_OVERRIDE.get() {
++    return url.clone();
++  }
+   cdn_domain(media_domain, server_environment).https_url().clone()
+ }
+ 
+diff --git a/crates/service/web/storyteller_web/src/http_server/common_responses/media/media_domain.rs b/crates/service/web/storyteller_web/src/http_server/common_responses/media/media_domain.rs
+--- a/crates/service/web/storyteller_web/src/http_server/common_responses/media/media_domain.rs
++++ b/crates/service/web/storyteller_web/src/http_server/common_responses/media/media_domain.rs
+@@ -10,12 +10,20 @@
+ 
+ impl MediaDomain {
+   pub fn new_cdn_url(&self) -> Url {
++    if let Some(origin) = crate::http_server::common_responses::media::cdn_link::media_cdn_base_url_override() {
++      if let Ok(url) = Url::parse(origin) {
++        return url;
++      }
++    }
+     match self {
+       // NB: Storyteller media is served from the FakeYou CDN too.
+       MediaDomain::FakeYou | MediaDomain::Storyteller => FAKEYOU_CDN.https_url().clone(),
+     }
+   }
+   pub fn cdn_url_str(&self) -> &'static str {
++    if let Some(origin) = crate::http_server::common_responses::media::cdn_link::media_cdn_base_url_override() {
++      return origin;
++    }
+     match self {
+       MediaDomain::FakeYou | MediaDomain::Storyteller => FAKEYOU_CDN.https_link_without_path(),
+     }
+diff --git a/crates/service/web/storyteller_web/src/startup/build_dependencies.rs b/crates/service/web/storyteller_web/src/startup/build_dependencies.rs
+--- a/crates/service/web/storyteller_web/src/startup/build_dependencies.rs
++++ b/crates/service/web/storyteller_web/src/startup/build_dependencies.rs
+@@ -180,6 +180,13 @@
+   let server_environment = ServerEnvironment::from_str(&easyenv::get_env_string_required("SERVER_ENVIRONMENT")?)
+     .ok_or(anyhow!("invalid server environment"))?;
+ 
++  // Optional: serve media links from a self-hosted origin instead of the hardcoded CDN hosts
++  // (personal-server patch). Unset or empty = upstream behavior.
++  if let Some(base) = easyenv::get_env_string_optional("MEDIA_CDN_BASE_URL").filter(|v| !v.trim().is_empty()) {
++    crate::http_server::common_responses::media::cdn_link::set_media_cdn_base_url_override(&base)?;
++    info!("Media CDN base URL override: {}", base.trim());
++  }
++
+   let (pager, pager_worker, paging_flags) = build_pager(server_environment, server_hostname);
+ 
+   let service_feature_flags = setup_static_feature_flags(paging_flags)?;

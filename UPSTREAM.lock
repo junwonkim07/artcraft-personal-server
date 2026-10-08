@@ -1,0 +1,27 @@
+# Pinned upstream source and dependency versions for artcraft-personal-server.
+# Change these deliberately; scripts/fetch-upstream.sh and docker/storyteller-web.Dockerfile verify the SHA.
+UPSTREAM_REPO=https://github.com/storytold/artcraft-services.git
+UPSTREAM_SHA=d950e57352a1b28c9296f69f8ae4eff43877de21
+# Desktop app commit inspected for the custom API host docs (reference only, not built)
+DESKTOP_REFERENCE_SHA=3e5793b6934b51536606720e5d56bcfd1fe7cc2d
+
+# Build toolchain (from upstream build/service_cpu.Dockerfile: ubuntu:jammy + RUST_TOOLCHAIN="1.93.0")
+BASE_IMAGE=ubuntu:jammy-20250819
+RUST_TOOLCHAIN=1.93.0
+# Migrations: upstream uses `diesel migration run` (_docs/dev_setup_server.md, diesel.toml). Version pinned here, installed with --locked.
+DIESEL_CLI_VERSION=2.3.14
+
+# Service images (exact tags; registry digests verified 2026-10-08 where shown)
+MYSQL_IMAGE=mysql:8.4.7            # upstream _docs/dev_setup_server.md requires MySQL 8.4 series; digest sha256:0426ec38c7a10aa45ba383887df7878f74ee70e2fd589c7b69207f3577901903
+REDIS_IMAGE=redis:7.4.7            # digest sha256:976ab0f0939b78c06d802bcd3bea44c5142ea9a756a57b861e08819817f768c8
+ELASTICSEARCH_IMAGE=elasticsearch:8.19.4   # upstream Cargo.toml: elasticsearch crate 8.5.0-alpha.1 (8.x API); digest sha256:5b2a4763ba7fa7a3495989733973a231e5061434d0d695373b0f702857428399
+MINIO_IMAGE=minio/minio:RELEASE.2025-04-22T22-12-26Z   # NOT registry-verified from this environment; CI `validate.yml` checks it
+MC_IMAGE=minio/mc:RELEASE.2025-04-16T18-13-26Z         # NOT registry-verified from this environment; CI checks it
+# Webapp build/runtime (upstream pins no Node version: no .nvmrc / engines; Node 22 LTS is a template choice)
+NODE_IMAGE=node:22.23.3-bookworm-slim   # digest sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
+NGINX_IMAGE=nginx:1.30.5-alpine         # stable line; digest sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94
+
+# CI tool pins (verified via GitHub API / release checksums on 2026-10-08)
+ACTIONS_CHECKOUT_SHA=08eba0b27e820071cde6df949e0beb9ba4906955   # actions/checkout v4.3.0
+GITLEAKS_VERSION=8.30.1
+GITLEAKS_LINUX_X64_SHA256=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb   # from gitleaks_8.30.1_checksums.txt

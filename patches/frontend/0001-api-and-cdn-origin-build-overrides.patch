@@ -1,0 +1,56 @@
+diff --git a/frontend/libs/api/src/lib/GetCdnOrigin.ts b/frontend/libs/api/src/lib/GetCdnOrigin.ts
+--- a/frontend/libs/api/src/lib/GetCdnOrigin.ts
++++ b/frontend/libs/api/src/lib/GetCdnOrigin.ts
+@@ -1,4 +1,9 @@
+ // TODO(bt,2025-05-15): Remove this code
+ export function GetCdnOrigin(): string {
++  // Personal-server patch: optional build-time override (origin only, no trailing slash).
++  const override = (import.meta.env.VITE_CDN_ORIGIN as string | undefined)?.trim();
++  if (override) {
++    return override.replace(/\/+$/, "");
++  }
+   return "https://cdn-2.fakeyou.com";
+ }
+diff --git a/frontend/libs/api/src/lib/config/StorytellerApiHostStore.ts b/frontend/libs/api/src/lib/config/StorytellerApiHostStore.ts
+--- a/frontend/libs/api/src/lib/config/StorytellerApiHostStore.ts
++++ b/frontend/libs/api/src/lib/config/StorytellerApiHostStore.ts
+@@ -2,7 +2,21 @@
+ const DEFAULT_API_HOST_PRODUCTION = "https://api.storyteller.ai";
+ const DEFAULT_API_HOST_DEVELOPMENT = "http://localhost:12345";
+ 
++// Personal-server patch: optional build-time override of the production API host.
++// VITE_API_ORIGIN unset/empty -> upstream default above. "same-origin" -> window.location.origin
++// (for a reverse proxy serving the web app and /v1 on one origin). Otherwise an origin URL.
++function productionApiHost(): string {
++  const override = (import.meta.env.VITE_API_ORIGIN as string | undefined)?.trim();
++  if (!override) {
++    return DEFAULT_API_HOST_PRODUCTION;
++  }
++  if (override === "same-origin") {
++    return window.location.origin;
++  }
++  return override.replace(/\/+$/, "");
++}
+ 
++
+ // NB(bt,2025-09-25): 'nx' is creating multiple copies of the library with name 
+ //   mangling, so the singleton pattern fails to resolve to a single instance.
+ (window as any).STORYTELLER_API_HOST_STORE = undefined;
+@@ -34,7 +48,7 @@
+     if ((window as any).STORYTELLER_API_HOST_STORE !== undefined) {
+       return (window as any).STORYTELLER_API_HOST_STORE;
+     }
+-    const instance = new StorytellerApiHostStore(DEFAULT_API_HOST_PRODUCTION);
++    const instance = new StorytellerApiHostStore(productionApiHost());
+     (window as any).STORYTELLER_API_HOST_STORE = instance;
+     return instance;
+   }
+@@ -63,7 +77,7 @@
+    * This mutates the singleton instance to target production.
+    */
+   public setProduction() {
+-    this.apiSchemeAndHost = DEFAULT_API_HOST_PRODUCTION;
++    this.apiSchemeAndHost = productionApiHost();
+   }
+ 
+   /** 
