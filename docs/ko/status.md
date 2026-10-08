@@ -3,17 +3,17 @@
 모든 근거는 업스트림 고정 커밋 `d950e57352a1b28c9296f69f8ae4eff43877de21` 기준 경로:줄 번호임 (코드는 복사하지 않음).
 `storyteller_web/`는 `crates/service/web/storyteller_web/`, `frontend/`는 업스트림 `frontend/`를 뜻함.
 
-> **아직 아무것도 런타임으로 확인되지 않았음.** 아래 "목표"는 설계상 의도이고, 로그인/목록/보기가 실제로 동작한다는 증거는 없음.
+> Ubuntu 24.04 / x86_64 VPS(4 vCPU, RAM 8GB, 스왑 8GB)에서 2026-10-08에 핵심 흐름을 검증했습니다. 완료한 항목과 미검증 항목을 아래에 구분합니다.
 
 ## 기능 지원
 
 | 기능 | 상태 | 근거 / 이유 |
 | --- | --- | --- |
-| API 부팅, `/_status` | 목표, **런타임 미검증** | `storyteller_web/src/http_server/routes/service_routes.rs:26` |
-| 웹앱 (`artcraft-webapp`) | 목표, **런타임 미검증** | `webapp` 서비스 = 업스트림 웹앱 프로덕션 빌드 + nginx, `http://localhost:4201` |
-| 회원가입 / 비밀번호 로그인 | 목표, **런타임 미검증** | 아래 "회원가입/로그인" |
-| 내 파일 목록 / 파일 보기 | 목표, **런타임 미검증** | 아래 "파일 목록/보기" |
-| 이미지 업로드 → 표시 | 목표, **런타임 미검증** | 아래 "미디어/CDN" |
+| API 부팅, `/_status` | ✅ 직접 접근 및 nginx 경유 200 | `storyteller_web/src/http_server/routes/service_routes.rs:26` |
+| 웹앱 (`artcraft-webapp`) | ✅ 프로덕션 빌드 및 SSH 터널에서 화면 표시 | `webapp` 서비스 = 업스트림 웹앱 프로덕션 빌드 + nginx, `http://localhost:4201` |
+| 회원가입 / 비밀번호 로그인 / 세션 유지 | ✅ 브라우저 회원가입, 별도 새 세션 비밀번호 로그인, 페이지 이동 후 세션 확인 | 아래 "회원가입/로그인" |
+| 내 파일 목록 / 파일 보기 | ✅ Library 목록 및 파일 상세 API 확인 | 아래 "파일 목록/보기" |
+| 이미지 업로드 → 표시 | ✅ 브라우저 세션으로 PNG 업로드 API 호출 후 Library의 로컬 미디어 이미지 로드 확인 | 아래 "미디어/CDN" |
 | 검색 (search_*) | ❌ 사실상 빈 결과 | Elasticsearch 사용, 색인 워커(`es-update-job`) 없음 |
 | 이미지/비디오/오디오 생성 | ❌ | 제공자 키 + 공개 웹훅 URL + 워커 필요 |
 | 결제 (Stripe), 이메일 (Resend) | ❌ | 키 없음 |
@@ -57,13 +57,13 @@
 자동 GC 버킷(`artcraft-public-gc`)은 테스트에서만 쓰여서(`storyteller_web/src/state/server_state.rs:95`) 비공개로 둠.
 
 검증 스크립트 `scripts/verify-storage-policy.sh` (실제 스택에서 실행): 비공개 버킷 익명 403, 공개 버킷 `media/` 밖 403,
-ListBucket 403, `media/` 안 GetObject 200, 웹앱 오리진 `/media/` 200을 확인함. **아직 실행된 적 없음.**
+ListBucket 403, `media/` 안 GetObject 200, 웹앱 오리진 `/media/` 200을 확인함. **실제 VPS에서 통과했습니다.** 없는 미디어 객체의 404 응답도 확인했습니다.
 
 ## 회원가입 / 로그인
 
 - 웹앱 회원가입은 `POST /v1/create_account` (`frontend/libs/api/src/lib/UsersApi.ts:226`, 라우트 `storyteller_web/src/http_server/routes/application_routes/user_routes.rs:43`),
   로그인은 `POST /v1/login` (`UsersApi.ts:126`, `user_routes.rs:59`)
-- 두 핸들러에는 캡차/이메일 인증/Resend 호출이 없음 (`storyteller_web/src/http_server/endpoints/users/create_account_handler.rs`, `login_handler.rs`). 그래서 이메일 키 없이도 동작할 것으로 예상
+- 두 핸들러에는 캡차/이메일 인증/Resend 호출이 없음 (`storyteller_web/src/http_server/endpoints/users/create_account_handler.rs`, `login_handler.rs`). 실제 이메일 키 없이 회원가입 및 비밀번호 로그인이 동작함
 - 세션 쿠키는 Domain 속성 없이(호스트 전용) 설정됨 (`crates/lib/actix_artcraft/src/sessions/user_sessions/http_user_session_manager.rs:78-84`).
   `COOKIE_DOMAIN`에 `localhost`가 들어있으면 Secure 없이 SameSite=Lax (`:69-75`) → `http://localhost` 터널에서 필요한 설정
 - 웹앱과 API가 같은 오리진(`http://localhost:4201`, nginx `/v1/` 프록시)이라 CORS/서드파티 쿠키 문제가 없음.
@@ -103,10 +103,21 @@ ES 인덱스는 `es-init`이 만들어 두므로 검색 요청이 인덱스 없�
 | --- | --- |
 | 패치가 고정 커밋에 깨끗하게 적용됨 | ✅ 로컬: `patch -p1 -F0 --dry-run` (fuzz 0) + 적용 결과 비교. CI: `git apply --check` (정적 잡) |
 | 프론트 패치 타입 검사 | ✅ 로컬: TypeScript 5.8.3 strict + `vite/client` 타입. 기본값 동작 시뮬레이션 (미설정/빈 값 → 업스트림 값) |
-| 백엔드 패치 컴파일 (`cargo check -p storyteller-web`) | **미검증** (로컬에 Rust 없음). CI `patched_checks` 수동 잡에 포함 |
-| 웹앱 프로덕션 빌드 | **미검증**. CI `patched_checks` / `build_images` 수동 잡에 포함 |
+| 백엔드 패치 컴파일 | ✅ VPS에서 Rust 1.93.0 `cargo build --release --locked --bin storyteller-web` 완료 |
+| 웹앱 프로덕션 빌드 | ✅ VPS에서 빌드 및 nginx 실행, 브라우저 화면 확인 |
 | 셸 `bash -n`, compose/워크플로 YAML, 포트 `127.0.0.1` 전용 | ✅ 정적 |
 | 비밀값 스캔 | ✅ 로컬 스크립트, CI gitleaks |
-| backup/restore 로직 | ✅ 가짜 `docker`로 로직만 |
-| `docker compose build` / `up`, `/_status`, 로그인, 업로드, 목록, 미디어 표시, 스토리지 정책 | **런타임 미검증** |
-| 287개 마이그레이션, 역할 시드, 빈 제공자 값 동작 | **런타임 미검증** |
+| backup/restore 로직 | ✅ 로직 검사 및 실제 초기 스택의 백업 생성·복구 통과 |
+| `docker compose build` / `up`, `/_status`, 로그인, 업로드, 목록, 미디어 표시, 스토리지 정책 | ✅ VPS 및 SSH 터널 브라우저에서 통과 |
+| 287개 마이그레이션, 역할 시드, ES 인덱스 초기화 | ✅ VPS에서 완료 |
+| MinIO 서버/클라이언트 소스 빌드, 접근 정책 | ✅ 빌드·기동 및 공개/비공개 경로 접근 검사 통과 |
+| 빈 제공자 값으로 API 시작 | ✅ 제공자 키 없이 API 정상 부팅 |
+
+## 실제 검증 환경
+
+- Ubuntu 24.04 x86_64, 4 vCPU, RAM 8GB, 스왑 8GB. Docker 29.8.2 / Compose 5.6.0.
+- 첫 전체 빌드 약 30분. 낮은 부하에서 컨테이너 메모리 합계 약 0.8GB(호스트·빌드 캐시 제외). 이는 부하 테스트나 최소 사양 보장이 아닙니다.
+- 테스트 PNG를 인증된 브라우저 세션에서 업로드하고, Library에 나타난 이미지의 `localhost:4201/media/...` URL 및 실제 로드를 확인했습니다.
+- 백업·복원은 개인 데이터를 넣기 전 초기 스택에서 검증했습니다. 대용량·동시 작업 중 복원 테스트는 하지 않았습니다.
+- GitHub의 자동 `static` 검사는 통과했습니다. 무거운 수동 CI 잡은 실행하지 않았고, 실제 빌드는 위 VPS에서 검증했습니다.
+- AI 생성, 공유 협업, 완전한 편집 히스토리 동기화, 데스크톱 연결은 이 결과에 포함되지 않습니다.

@@ -1,6 +1,6 @@
 # 사전요건 & Ubuntu 24.04 VPS 설치
 
-> 이 문서의 시간/용량 수치는 **추정치**임 (작성자가 실제로 빌드해 본 적 없음).
+> Ubuntu 24.04, 4 vCPU, RAM 8GB + 스왑 8GB VPS에서 핵심 배포 흐름을 검증했습니다. 아래 권장 용량은 여유를 둔 추정치이며, 완료 범위는 [검증 상태](status.md)를 확인하세요.
 
 ## 사전요건
 
@@ -29,11 +29,13 @@ chown -R deploy:deploy /home/deploy/.ssh && chmod 700 /home/deploy/.ssh && chmod
 새 터미널에서 `ssh deploy@<your-server>` 키 로그인이 되는 걸 **확인한 뒤에**, 비밀번호 로그인과 root 로그인을 끔:
 
 ```bash
-sudo tee /etc/ssh/sshd_config.d/90-hardening.conf >/dev/null <<'EOF'
+sudo tee /etc/ssh/sshd_config.d/00-hardening.conf >/dev/null <<'EOF'
 PasswordAuthentication no
+KbdInteractiveAuthentication no
 PermitRootLogin no
 EOF
-sudo systemctl reload ssh
+sudo sshd -t && sudo systemctl reload ssh
+sudo sshd -T | grep -E "^(passwordauthentication|kbdinteractiveauthentication|permitrootlogin) "
 ```
 
 방화벽은 **SSH만** 허용함. `12345`, `9000`, `9001`은 **열지 말 것**.
@@ -110,7 +112,7 @@ cd artcraft-personal-server
 scripts/generate-secrets.sh        # .env, config/providers.env 생성 (권한 600). 비밀값은 출력되지 않음
 scripts/fetch-upstream.sh          # (선택) 고정 커밋을 ./upstream에 받아서 직접 검토. 빌드에는 필요 없음
 
-docker compose build               # 추정 40~120분 (Rust + 웹앱). 패치 적용 실패 시 여기서 멈춤
+docker compose build               # 검증 VPS에서 약 30분, 사양/네트워크에 따라 달라짐
 docker compose up -d               # mysql/redis/es/minio -> 버킷+정책 -> 마이그레이션+역할 시드 -> ES 인덱스 -> API -> webapp
 docker compose ps
 scripts/status.sh                  # GET http://127.0.0.1:12345/_status
@@ -121,6 +123,6 @@ scripts/verify-storage-policy.sh   # MinIO 익명 접근 범위 확인 (공개 m
 빌드 로그의 `patches applied:` 줄에서 적용된 패치를 확인할 수 있음 (`APPLY_PATCHES=false`면 원본 업스트림).
 
 그 다음 [접근 방법](access.md)대로 브라우저에서 `http://localhost:4201` → 회원가입(`/signup`) → 로그인 순서로 시도.
-부팅이 성공할지는 **검증되지 않았음** ([검증 상태](status.md)). 실패하면 로그와 함께 이슈로 남겨주면 템플릿 개선에 도움이 됨.
+지원 기능과 실제 확인 범위는 [검증 상태](status.md)를 확인하세요. 실패하면 비밀값을 지운 로그와 함께 이슈로 남겨 주세요.
 
 다음: [접근 방법](access.md)

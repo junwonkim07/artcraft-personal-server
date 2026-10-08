@@ -18,7 +18,7 @@ An unofficial Docker Compose setup for running the ArtCraft web app, API, and st
 
 Bring the ArtCraft web interface and its supporting services onto a single machine. This project packages the upstream application with persistent storage, local media URLs, database setup, and backup tools. Access your server through an SSH tunnel, without exposing its database or storage services to the internet.
 
-**Experimental:** end-to-end deployment validation is in progress. See the [verification status](docs/ko/status.md) for tested behavior and known limitations.
+**Experimental, with a verified core:** signup, password login, image upload, library display, storage permissions, and initial-stack backup/restore have been tested on an Ubuntu VPS. See the [verification status](docs/ko/status.md) for the exact scope.
 
 ## What’s included
 
@@ -44,11 +44,11 @@ flowchart LR
     API --> Storage
 ```
 
-All application traffic stays on your server. External model providers are not configured by default. Upstream UI links and integrations remain present; this is not an offline or air-gapped build.
+The API and uploaded media are served from your server. External model providers are not configured by default. Upstream UI links and integrations remain present; this is not an offline or air-gapped build.
 
 ## Quick start
 
-You’ll need Git, Docker Engine, and Docker Compose. For a fresh VPS, start with the [Ubuntu setup guide](docs/ko/install.md). The initial build compiles Rust, Go, and the web app; allow substantial time and disk space. Resource requirements are still being measured.
+You’ll need Git, Docker Engine, and Docker Compose. For a fresh VPS, start with the [Ubuntu setup guide](docs/ko/install.md). The initial build compiles Rust, Go, and the web app; allow substantial time and disk space. The first complete build took about 30 minutes on a 4-vCPU VPS with 8 GB RAM and 8 GB swap; timings vary.
 
 ```bash
 git clone https://github.com/junwonkim07/artcraft-personal-server.git
