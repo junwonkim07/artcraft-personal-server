@@ -8,6 +8,8 @@ WRITER_SERVICES=(storyteller-web)
 # Services that must be running to dump/restore data.
 DATA_SERVICES=(mysql minio)
 # Buckets created by minio-init in docker-compose.yml.
+# Used by scripts sourcing this file.
+# shellcheck disable=SC2034
 BUCKETS=(artcraft-private artcraft-public artcraft-public-gc)
 
 lock_value() { grep -E "^$1=" "${ROOT_DIR}/UPSTREAM.lock" | head -n1 | cut -d= -f2 | awk '{print $1}'; }

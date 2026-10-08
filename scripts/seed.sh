@@ -9,7 +9,7 @@ set -Eeuo pipefail
 source "$(dirname "$0")/lib.sh"
 seed_file="${ROOT_DIR}/upstream/_database/sql/seed/sql/user_badges.sql"
 [ -f "${seed_file}" ] || { echo "run scripts/fetch-upstream.sh first" >&2; exit 1; }
-mysql_q() { compose exec -T mysql sh -c 'exec mysql -ustoryteller -p"$MYSQL_PASSWORD" --batch --skip-column-names storyteller' "$@"; }
+mysql_q() { compose exec -T mysql sh -c 'exec mysql -ustoryteller -p"$MYSQL_PASSWORD" --batch --skip-column-names storyteller'; }
 count="$(echo 'SELECT COUNT(*) FROM badges;' | mysql_q)"
 if [ "${count}" != "0" ]; then
   echo "badges already has ${count} row(s); skipping (upstream seed is not idempotent)"

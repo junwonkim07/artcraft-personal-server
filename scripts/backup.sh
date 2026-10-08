@@ -64,6 +64,8 @@ cp "${ROOT_DIR}/UPSTREAM.lock" "${partial}/"
   echo "running_services=${ORIG_RUNNING[*]:-}"
   echo "buckets=${BUCKETS[*]}"
 } > "${partial}/MANIFEST"
+# SHA256SUMS is explicitly excluded from the input file list.
+# shellcheck disable=SC2094
 ( cd "${partial}" && find . -type f ! -name SHA256SUMS | sort | while IFS= read -r f; do sha256_create "$f"; done > SHA256SUMS )
 
 mv "${partial}" "${final}"

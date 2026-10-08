@@ -3,6 +3,8 @@
 # Checks: forbidden files, emails, IPv4 (except 127.0.0.1 / 0.0.0.0 / Docker DNS 127.0.0.11), absolute home paths,
 # private keys, common token formats, and long hex/base64 strings not pinned in UPSTREAM.lock.
 # CI additionally runs gitleaks (see .github/workflows/validate.yml).
+# sed indents every line in multiline diagnostics.
+# shellcheck disable=SC2001
 set -Eeuo pipefail
 # shellcheck source=scripts/lib.sh
 source "$(dirname "$0")/lib.sh"
